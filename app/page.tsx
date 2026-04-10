@@ -163,8 +163,8 @@ export default function Home() {
               <div className="p-3 w-fit rounded-2xl bg-primary/10 text-primary">
                 <Type className="w-6 h-6" />
               </div>
-              <h3 className="font-black text-xl uppercase tracking-tight">Docx Support</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">Upload scripts directly from Word documents with full formatting preservation.</p>
+              <h3 className="font-black text-xl uppercase tracking-tight">Multi-Format</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">Upload scripts from Word, PDF, Markdown, or Text files with ease.</p>
             </div>
             <div className="p-8 rounded-[2rem] bg-card border border-border space-y-4">
               <div className="p-3 w-fit rounded-2xl bg-primary/10 text-primary">
