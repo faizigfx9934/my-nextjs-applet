@@ -7,8 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
 import mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
 import { db, auth } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface FileUploadProps {
   onSuccess: () => void;
@@ -40,6 +44,23 @@ export function FileUpload({ onSuccess }: FileUploadProps) {
             // Every element (p, h1, etc.) becomes its own paragraph/section
             paragraphs.push([text]);
           });
+        } else if (file.name.endsWith('.pdf')) {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+              .map((item: any) => item.str)
+              .join(' ');
+            
+            // Split page text into sentences or blocks
+            const blocks = pageText.split(/\. /).filter(b => b.trim().length > 0);
+            blocks.forEach(block => {
+              paragraphs.push([block.trim() + '.']);
+            });
+          }
         } else {
           const text = await file.text();
           // Split by double newlines to get distinct paragraphs
@@ -100,6 +121,8 @@ export function FileUpload({ onSuccess }: FileUploadProps) {
     accept: {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
       'text/plain': ['.txt'],
+      'text/markdown': ['.md'],
+      'application/pdf': ['.pdf'],
     },
     multiple: false,
   });
@@ -123,7 +146,7 @@ export function FileUpload({ onSuccess }: FileUploadProps) {
             {isDragActive ? 'Drop the file here' : 'Click or drag file'}
           </p>
           <p className="text-sm text-muted-foreground font-bold uppercase tracking-widest">
-            Supports .docx and .txt files
+            Supports .docx, .txt, .md, and .pdf files
           </p>
         </div>
         {!isUploading && (
