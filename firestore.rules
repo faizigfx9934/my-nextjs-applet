@@ -1,0 +1,88 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - uid: string (required) - Firebase Auth UID
+//   - email: string (required) - User's email
+//   - displayName: string (optional) - User's display name
+//   - photoURL: string (optional) - User's photo URL
+//   - createdAt: timestamp (optional) - Account creation time
+//
+// Collection: transcriptions
+// Document ID: {transcriptionId}
+// Fields:
+//   - userId: string (required) - Owner's UID
+//   - fileName: string (required) - Original file name
+//   - content: string (optional) - Full text content
+//   - lines: list of strings (required) - Split lines for editing
+//   - createdAt: timestamp (required) - Creation time
+//   - updatedAt: timestamp (required) - Last update time
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.userId;
+    }
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.email.size() < 255;
+    }
+    
+    function isValidTranscription(data) {
+      return data.keys().hasAll(['userId', 'fileName', 'lines', 'createdAt', 'updatedAt']) &&
+             data.userId == request.auth.uid &&
+             data.fileName is string && data.fileName.size() < 255 &&
+             data.lines is list && data.lines.size() < 5000 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "faizigfx6@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid;
+    }
+
+    match /transcriptions/{transcriptionId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidTranscription(request.resource.data);
+      allow update: if isDocOwner() && isValidTranscription(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isDocOwner() || isAdmin();
+    }
+  }
+}
